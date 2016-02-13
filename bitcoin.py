@@ -74,29 +74,33 @@ def computeDelta(wt, X, Xi):
 # Perform the Bayesian Regression to predict the average price change for each dataset of train2 using train1 as input. 
 # These will be used to estimate the coefficients (w0, w1, w2, and w3) in equation 8.
 weight = 2  # This constant was not specified in the paper, but we will use 2.
-trainDeltaP90 = np.empty(0)
-trainDeltaP180 = np.empty(0)
-trainDeltaP360 = np.empty(0)
-for i in xrange(0,len(train1_90.index)) :
-  trainDeltaP90 = np.append(trainDeltaP90, computeDelta(weight,train2_90.iloc[i],train1_90))
-for i in xrange(0,len(train1_180.index)) :
-  trainDeltaP180 = np.append(trainDeltaP180, computeDelta(weight,train2_180.iloc[i],train1_180))
-for i in xrange(0,len(train1_360.index)) :
-  trainDeltaP360 = np.append(trainDeltaP360, computeDelta(weight,train2_360.iloc[i],train1_360))
 
-# Actual deltaP values for the train2 data.
-trainDeltaP = np.asarray(train2_360[['Yi']])
-trainDeltaP = np.reshape(trainDeltaP, -1)
+def BayesRegression(t1_90, t1_180, t1_360, t2_90, t2_180, t2_360):
+  trainDeltaP90 = np.empty(0)
+  trainDeltaP180 = np.empty(0)
+  trainDeltaP360 = np.empty(0)
+  for i in xrange(0,len(t1_90.index)) :
+    trainDeltaP90 = np.append(trainDeltaP90, computeDelta(weight,t2_90.iloc[i],t1_90))
+  for i in xrange(0,len(t1_180.index)) :
+    trainDeltaP180 = np.append(trainDeltaP180, computeDelta(weight,t2_180.iloc[i],t1_180))
+  for i in xrange(0,len(t1_360.index)) :
+    trainDeltaP360 = np.append(trainDeltaP360, computeDelta(weight,t2_360.iloc[i],t1_360))
+
+  # Actual deltaP values for the train2 data.
+  trainDeltaP = np.asarray(t2_360[['Yi']])
+  trainDeltaP = np.reshape(trainDeltaP, -1)
 
 
-# Combine all the training data
-d = {'deltaP': trainDeltaP,
-     'deltaP90': trainDeltaP90,
-     'deltaP180': trainDeltaP180,
-     'deltaP360': trainDeltaP360 }
-trainData = pd.DataFrame(d)
+  # Combine all the training data
+  d = {'deltaP': trainDeltaP,
+       'deltaP90': trainDeltaP90,
+       'deltaP180': trainDeltaP180,
+       'deltaP360': trainDeltaP360 }
 
-print trainData
+  return d
+
+train_dict = BayesRegression(train1_90, train1_180, train1_360, train2_90, train2_180, train2_360)
+trainData = pd.DataFrame(train_dict)
 
 
 # Feed the data: [deltaP, deltaP90, deltaP180, deltaP360] to train the linear model. 
@@ -105,9 +109,7 @@ print trainData
 # YOUR CODE HERE
 
 y, X = dmatrices('deltaP ~ deltaP90 + deltaP180 + deltaP360', data=trainData, return_type='dataframe')
-# model = smf.OLS(trainData['deltaP'], trainData[['deltaP90', 'deltaP180', 'deltaP360']]).fit()
 model = smf.OLS(y, X).fit()
-print model.summary()
 
 # Print the weights from the model
 print model.params
@@ -117,31 +119,31 @@ print model.params
 # This should be similar to above where it was computed for train2.
 # YOUR CODE HERE
 
-
+test_dict = BayesRegression(train1_90, train1_180, train1_360, test_90, test_180, test_360)
 
 
 # Actual deltaP values for test data.
 # YOUR CODE HERE (use the right variable names so the below code works)
 
-
+testDeltaP = test_dict['deltaP']
+testData = pd.DataFrame(test_dict)
 
 # Combine all the test data
-d = {'deltaP': testDeltaP,
-     'deltaP90': testDeltaP90,
-     'deltaP180': testDeltaP180,
-     'deltaP360': testDeltaP360}
-testData = pd.DataFrame(d)
-
+# d = {'deltaP': testDeltaP,
+#      'deltaP90': testDeltaP90,
+#      'deltaP180': testDeltaP180,
+#      'deltaP360': testDeltaP360}
+# testData = pd.DataFrame(d)
 
 # Predict price variation on the test data set.
-result = model.predict(testData)
+y, X = dmatrices('deltaP ~ deltaP90 + deltaP180 + deltaP360', data=testData, return_type='dataframe')
+result = model.predict(X)
 compare = { 'Actual': testDeltaP,
             'Predicted': result }
 compareDF = pd.DataFrame(compare)
 
-
 # Compute the MSE and print the result
 # HINT: consider using the sm.mean_squared_error function
-MSE = 0.0
+MSE = sm.mean_squared_error(compareDF['Actual'], compareDF['Predicted'])
 # YOUR CODE HERE
 print "The MSE is %f" % (MSE)
